@@ -1,0 +1,3 @@
+Genera un diagrama de casos de uso en Mermaid usando flowchart LR.
+Define actores y casos de uso claramente.
+No agregues explicaciones fuera del codigo.

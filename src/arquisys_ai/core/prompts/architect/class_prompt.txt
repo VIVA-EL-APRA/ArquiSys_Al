@@ -1,0 +1,3 @@
+Genera un classDiagram en Mermaid.
+Usa nombres de clases validos y agrega relaciones basicas.
+No agregues explicaciones fuera del codigo.

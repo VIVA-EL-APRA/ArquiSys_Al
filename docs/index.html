@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ArquiSys AI - GitHub Pages</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero">
+        <p class="badge">ARQUISYS AI - GH PAGES</p>
+        <h1>Generador de Diagramas (Mermaid + PlantUML)</h1>
+        <p>
+          Demo web sin backend: analiza el contexto y genera diagramas de casos de uso,
+          secuencia, flujo/BPMN-like y entidad-relacion.
+        </p>
+      </section>
+
+      <section class="panel">
+        <label for="request">Solicitud principal</label>
+        <textarea id="request" rows="8">
+Genera el paquete de documentacion visual completo (Casos de uso, Secuencia, BPMN y Entidad-Relacion) para el modulo de Checkout y Pago de un E-commerce de ropa. El flujo debe abarcar desde que el usuario revisa su carrito, hasta que se aprueba el pago y se notifica al almacen. Asume una pasarela de pagos externa y un sistema de inventario propio. Aplica manejo de errores (tarjeta sin fondos y falta de stock).
+        </textarea>
+
+        <div class="row">
+          <div>
+            <label for="diagramType">Tipo de salida</label>
+            <select id="diagramType">
+              <option value="auto">Auto</option>
+              <option value="doc_package">Paquete documentacion</option>
+              <option value="use_case">Casos de uso</option>
+              <option value="sequence">Secuencia</option>
+              <option value="flow">Flujo/BPMN-like</option>
+              <option value="er">Entidad-Relacion</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="outputFormat">Formato</label>
+            <select id="outputFormat">
+              <option value="auto">Auto</option>
+              <option value="mermaid">Mermaid</option>
+              <option value="plantuml">PlantUML</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="plantumlServer">Servidor PlantUML</label>
+            <input id="plantumlServer" value="https://www.plantuml.com/plantuml" />
+          </div>
+        </div>
+
+        <button id="generateBtn">Analizar y generar</button>
+      </section>
+
+      <section class="analysis" id="analysis"></section>
+      <section id="questions"></section>
+      <section id="output"></section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

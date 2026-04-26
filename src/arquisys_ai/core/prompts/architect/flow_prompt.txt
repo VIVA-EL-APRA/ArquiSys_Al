@@ -1,0 +1,3 @@
+Genera un flowchart TD en Mermaid.
+Conecta los pasos en orden.
+No agregues explicaciones fuera del codigo.

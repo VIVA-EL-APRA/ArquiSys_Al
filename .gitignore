@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+build/
+dist/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local generated artifacts
+diagrama.puml
+diagrama_*.png
