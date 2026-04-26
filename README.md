@@ -68,7 +68,7 @@ La interfaz permite:
 - escribir solicitudes libres,
 - completar contexto guiado (actores, casos de uso, secuencia, ER, C4, stack),
 - visualizar preguntas del Analista cuando falta contexto,
-- renderizar Mermaid cuando corresponde y mostrar artefactos textuales para QA/scaffolding.
+- renderizar Mermaid cuando corresponde y mostrar artefactos textuales para QA/scaffolding,
 - generar paquetes completos (casos de uso + secuencia + flujo/BPMN + ER) desde el mismo contexto.
 
 ## Variables de entorno
