@@ -78,6 +78,59 @@ def extract_numbered_steps(text: str) -> list[str]:
     return []
 
 
+def extract_narrative_steps(text: str) -> list[str]:
+    steps: list[str] = []
+    
+    paso_pattern = re.findall(
+        r"(?:^|\n)\s*(?:paso\s*)?(\d+)[\:\.]\s*([^\n]+)",
+        text,
+        flags=re.IGNORECASE
+    )
+    if paso_pattern:
+        steps.extend([f"{num}. {step.strip()}" for num, step in paso_pattern if step.strip()])
+    
+    if steps:
+        return steps
+    
+    action_patterns = [
+        r"(?:^|\n)\s*las\s+acciones\s+(?:principales\s+)?son[\:\-]?\s*([^\n]+)",
+        r"(?:^|\n)\s*los\s+pasos\s+(?:principales\s+)?son[\:\-]?\s*([^\n]+)",
+        r"(?:^|\n)\s*el\s+flujo\s+es[\:\-]?\s*([^\n]+)",
+        r"(?:^|\n)\s*flujo\s+principal[\:\-]?\s*([^\n]+)",
+        r"(?:^|\n)\s*el\s+proceso\s+es[\:\-]?\s*([^\n]+)",
+    ]
+    
+    for pattern in action_patterns:
+        matches = re.findall(pattern, text, flags=re.IGNORECASE)
+        for match in matches:
+            items = split_csv_items(match)
+            steps.extend(items)
+    
+    if steps:
+        return _dedupe_list(steps)
+    
+    inline_steps = re.findall(
+        r"(?:^|\n)\s*(?:el\s+)?(?:cliente|usuario|cliente|comercio|sistema)\s+(?:hace|realiza|envía|recibe|invoca|llama)\s+([^\n]+)",
+        text,
+        flags=re.IGNORECASE
+    )
+    if inline_steps:
+        return _dedupe_list([s.strip() for s in inline_steps if s.strip()])
+    
+    return []
+
+
+def _dedupe_list(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        key = normalize_text(item)
+        if key and key not in seen:
+            seen.add(key)
+            result.append(item.strip())
+    return result
+
+
 def mermaid_safe_label(text: str) -> str:
     safe = text.replace('"', "'").strip()
     safe = re.sub(r"\s+", " ", safe)

@@ -79,10 +79,66 @@ div[data-baseweb="select"] input {
   background-color: rgba(255, 255, 255, 0.96) !important;
 }
 
+div[data-baseweb="select"] div[class*="control"] {
+  background-color: #ffffff !important;
+}
+
+div[data-baseweb="select"] div[class*="control"] * {
+  color: #1f2933 !important;
+}
+
+.stSelectbox div[data-baseweb="select"] > div {
+  background-color: #ffffff !important;
+  color: #1f2933 !important;
+}
+
+.stSelectbox div[data-baseweb="select"] div[class*="singleValue"] {
+  color: #1f2933 !important;
+}
+
+.stSelectbox div[data-baseweb="select"] div[class*="placeholder"] {
+  color: #6b7280 !important;
+}
+
+.stMultiSelect div[data-baseweb="select"] > div {
+  background-color: #ffffff !important;
+}
+
+.stTextInput > div > div {
+  background-color: #ffffff !important;
+}
+
+.stTextInput input {
+  color: #1f2933 !important;
+  background-color: #ffffff !important;
+}
+
+.stTextArea > div > div {
+  background-color: #ffffff !important;
+}
+
+.stTextArea textarea {
+  color: #1f2933 !important;
+  background-color: #ffffff !important;
+}
+
 code,
 pre,
 .stCode {
   color: #0f172a !important;
+  background-color: #f8fafc !important;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+  background-color: transparent;
+}
+
+.stTabs [data-baseweb="tab"] {
+  color: #374151 !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  color: #0e7490 !important;
 }
 
 .hero {
@@ -116,6 +172,118 @@ pre,
   color: var(--muted);
   font-size: 0.97rem;
   line-height: 1.48;
+}
+
+.st-expander {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+}
+
+.st-expander > div:first-child {
+  background-color: transparent !important;
+}
+
+.st-expander [data-testid="stExpanderToggleIcon"] {
+  color: var(--primary) !important;
+}
+
+.st-expander summary {
+  color: var(--ink) !important;
+}
+
+.st-expander div[role="group"] {
+  background-color: transparent !important;
+}
+
+.stButton > button,
+div[data-testid="stBaseButton-secondary"],
+div[data-testid="stBaseButton-primary"],
+button[class*="stButton"] {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+
+.stButton > button:hover,
+div[data-testid="stBaseButton-secondary"]:hover,
+div[data-testid="stBaseButton-primary"]:hover,
+button[class*="stButton"]:hover {
+  background-color: #0d5d7a !important;
+  color: #ffffff !important;
+}
+
+.stButton > button:focus,
+div[data-testid="stBaseButton-secondary"]:focus,
+div[data-testid="stBaseButton-primary"]:focus,
+button[class*="stButton"]:focus {
+  background-color: #0a4a5e !important;
+  color: #ffffff !important;
+}
+
+.stButton > button:active,
+div[data-testid="stBaseButton-secondary"]:active,
+div[data-testid="stBaseButton-primary"]:active {
+  background-color: #083544 !important;
+  color: #ffffff !important;
+}
+
+button[kind="secondary"] {
+  background-color: #e8f4ef !important;
+  color: #1f2933 !important;
+}
+
+button[kind="secondary"]:hover {
+  background-color: #d1e9de !important;
+  color: #1f2933 !important;
+}
+
+.stForm {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  padding: 1rem !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--line) !important;
+}
+
+.stForm [data-testid="stFormSubmitHelper"] {
+  background-color: transparent !important;
+}
+
+div[data-testid="stNotification"] {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.stAlert {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: var(--ink) !important;
+}
+
+.stAlert > div {
+  color: var(--ink) !important;
+}
+
+.stInfo {
+  background-color: #e0f2fe !important;
+  color: #0c4a6e !important;
+}
+
+.stSuccess {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+.stWarning {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.stError {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
 }
 
 .stat-card {
@@ -435,6 +603,59 @@ def set_template(template: str) -> None:
     st.session_state["draft_request"] = template
 
 
+def _parse_list_response(value: str) -> str:
+    if not value:
+        return value
+    
+    import re
+    
+    value = value.strip()
+    
+    numbered_pattern = re.match(r'^( paso\s*\d+|pasos?\s*\d+|1\.|1\)|Paso\s*\d+)', value, re.IGNORECASE)
+    if numbered_pattern:
+        return value
+    
+    if re.search(r'^\d+[\.\)]', value):
+        return value
+    
+    if re.search(r'^- ', value, re.MULTILINE):
+        return value
+    
+    if "\n" in value and len(value.split("\n")) > 1:
+        lines = [line.strip() for line in value.split("\n") if line.strip()]
+        if lines:
+            numbered_lines = []
+            for i, line in enumerate(lines, 1):
+                cleaned = re.sub(r'^\d+[\.\)]\s*', '', line).strip()
+                if cleaned:
+                    numbered_lines.append(f"{i}. {cleaned}")
+            return "\n".join(numbered_lines)
+    
+    if "," in value:
+        items = [item.strip() for item in value.split(",") if item.strip()]
+        return ", ".join(items)
+    
+    conjunctions = [" y ", " and ", " e ", " & ", " + ", " luego ", " después "]
+    for conj in conjunctions:
+        if conj in value.lower():
+            items = [item.strip() for item in re.split(re.escape(conj), value, flags=re.IGNORECASE) if item.strip()]
+            return ", ".join(items)
+    
+    return value
+
+
+def _build_field_value(key: str, value: str) -> str:
+    list_fields = {
+        "actors", "use_cases", "classes", "flow_steps", "participants",
+        "entities", "relationships", "c4_people", "c4_systems", 
+        "c4_containers", "c4_relations", "stack", "sequence_steps"
+    }
+    
+    if key in list_fields:
+        return _parse_list_response(value)
+    return value
+
+
 _DIAGRAM_TYPE_OPTIONS = [
     "Seleccionar...",
     "paquete documentacion",
@@ -491,6 +712,37 @@ def render_clarification_form(analysis: dict[str, object]) -> None:
     if not isinstance(missing_info, list) or not missing_info:
         return
 
+    if "clarification_answers" not in st.session_state:
+        st.session_state["clarification_answers"] = {}
+
+    previous_answers = st.session_state["clarification_answers"]
+    raw_request = analysis.get("raw_request", "")
+    
+    filtered_missing = []
+    for key in missing_info:
+        if not isinstance(key, str):
+            continue
+        if key in previous_answers and previous_answers[key].strip():
+            continue
+        normalized = raw_request.lower() if raw_request else ""
+        key_patterns = {
+            "actors": ["actores:", "actor:", "usuarios:"],
+            "use_cases": ["casos de uso:", "funciones:", "acciones:"],
+            "flow_steps": ["pasos:", "flujo:", "proceso:"],
+            "participants": ["participantes:", "intervinientes:"],
+            "entities": ["entidades", "tablas", "entity"],
+            "c4_systems": ["sistemas c4", "sistema objetivo"],
+            "c4_containers": ["contenedores", "containers"],
+            "stack": ["stack", "tecnologias", "frameworks"],
+        }
+        patterns = key_patterns.get(key, [])
+        if patterns and any(p in normalized for p in patterns):
+            continue
+        filtered_missing.append(key)
+
+    if not filtered_missing:
+        return
+
     st.markdown("### Responder preguntas del Analista")
     st.caption(
         "Completa los datos faltantes aqui y pulsa 'Reintentar'. "
@@ -499,7 +751,7 @@ def render_clarification_form(analysis: dict[str, object]) -> None:
 
     answers: dict[str, str] = {}
     with st.form("clarification_form", clear_on_submit=False):
-        for key in missing_info:
+        for key in filtered_missing:
             if not isinstance(key, str):
                 continue
 
@@ -510,15 +762,19 @@ def render_clarification_form(analysis: dict[str, object]) -> None:
             widget = config.get("widget", "text")
             label = str(config.get("label", key))
             field_key = f"clar_{key}"
+            default_value = previous_answers.get(key, "")
 
             if widget == "select":
                 options = config.get("options", ["Seleccionar..."])
-                choice = st.selectbox(label, options=options, key=field_key)
+                choice = st.selectbox(label, options=options, key=field_key, index=0)
+                if default_value and default_value in options:
+                    choice_index = options.index(default_value)
+                    choice = st.selectbox(label, options=options, key=field_key, index=choice_index)
                 answers[key] = "" if choice == "Seleccionar..." else str(choice)
             elif widget == "textarea":
-                answers[key] = st.text_area(label, key=field_key, height=92).strip()
+                answers[key] = st.text_area(label, key=field_key, height=92, value=default_value).strip()
             else:
-                answers[key] = st.text_input(label, key=field_key).strip()
+                answers[key] = st.text_input(label, key=field_key, value=default_value).strip()
 
         submit_answers = st.form_submit_button("Reintentar con respuestas", use_container_width=True)
 
@@ -526,14 +782,16 @@ def render_clarification_form(analysis: dict[str, object]) -> None:
         return
 
     additional_lines: list[str] = []
-    for key in missing_info:
+    for key in filtered_missing:
         if not isinstance(key, str):
             continue
         value = answers.get(key, "").strip()
         if not value:
             continue
+        processed_value = _build_field_value(key, value)
         prefix = str(_CLARIFICATION_SCHEMA.get(key, {}).get("prefix", key))
-        additional_lines.append(f"{prefix}: {value}")
+        additional_lines.append(f"{prefix}: {processed_value}")
+        st.session_state["clarification_answers"][key] = processed_value
 
     if not additional_lines:
         st.warning("Completa al menos una respuesta antes de reintentar.")

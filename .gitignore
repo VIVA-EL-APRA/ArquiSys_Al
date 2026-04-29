@@ -16,3 +16,4 @@ Thumbs.db
 # Local generated artifacts
 diagrama.puml
 diagrama_*.png
+.aider*

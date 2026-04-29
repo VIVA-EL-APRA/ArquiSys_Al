@@ -6,7 +6,7 @@ from pathlib import Path
 from arquisys_ai.config.settings import get_settings
 from arquisys_ai.core.models import AnalystResult, DiagramFormat, DiagramStandard, DiagramType
 from arquisys_ai.services.llm_client import LLMClient, NullLLMClient
-from arquisys_ai.utils.text import extract_list_after_labels, extract_numbered_steps, normalize_text
+from arquisys_ai.utils.text import extract_list_after_labels, extract_narrative_steps, extract_numbered_steps, normalize_text
 
 
 _PROMPT_PATH = (
@@ -14,24 +14,100 @@ _PROMPT_PATH = (
 )
 
 
+_LLM_SYSTEM_PROMPT = """Eres un Analista de Sistemas experto en extraer contexto de solicitudes de diagramación.
+
+Tu tarea es analizar la solicitud del usuario y extraer:
+- Tipo de diagrama (casos de uso, secuencia, flujo, ER, C4 contexto, C4 contenedor, clases, paquete)
+- Estándar (UML, BPMN, ER, C4)
+- Formato de salida (Mermaid, PlantUML, texto)
+- Actores/Participantes
+- Casos de uso / Funciones
+- Flujo/Pasos
+- Entidades/Clases
+- Relaciones
+- Contenedores C4
+- Stack tecnológico
+
+Responde SOLO con JSON válido conteniendo estos campos. No agregues texto fuera del JSON.
+Usa null para campos no mencionados."""
+
+
 class AnalystAgent:
     def __init__(self, llm_client: LLMClient | None = None, use_llm: bool | None = None):
         settings = get_settings()
-        self._llm_client = llm_client or NullLLMClient()
-        self._use_llm = settings.use_llm_for_analyst if use_llm is None else use_llm
+        self._llm_client = llm_client or settings.analyst_llm_client or NullLLMClient()
+        self._use_llm = settings.use_ollama_for_analyst or settings.use_llm_for_analyst if use_llm is None else use_llm
+        self._processed_fields: dict[str, bool] = {}
+
+    def _mark_field_processed(self, field: str) -> None:
+        self._processed_fields[field] = True
+
+    def _was_field_processed(self, field: str) -> bool:
+        return self._processed_fields.get(field, False)
 
     def analyze(self, user_request: str) -> AnalystResult:
-        result = self._heuristic_analysis(user_request)
-
-        if self._use_llm and result.missing_info:
+        if self._use_llm and self._llm_client:
             llm_result = self._try_llm_completion(user_request)
-            if llm_result is not None:
-                result = self._merge(result, llm_result)
+            if llm_result is not None and llm_result.diagram_type is not None:
+                result = self._heuristic_fallback(llm_result, user_request)
+                result.missing_info = self._detect_missing_info(result)
+                result.clarifying_questions = self._build_clarifying_questions(result.missing_info, result.raw_request)
+                result.ready_for_architect = not result.missing_info
+                return result
 
+        result = self._heuristic_analysis(user_request)
         result.missing_info = self._detect_missing_info(result)
-        result.clarifying_questions = self._build_clarifying_questions(result.missing_info)
+        result.clarifying_questions = self._build_clarifying_questions(result.missing_info, result.raw_request)
         result.ready_for_architect = not result.missing_info
         return result
+
+    def _heuristic_fallback(self, llm_result: AnalystResult, user_request: str) -> AnalystResult:
+        normalized = normalize_text(user_request)
+        
+        if not llm_result.actors:
+            actors = extract_list_after_labels(user_request, ["Actores", "Actor", "Usuarios"])
+            if not actors:
+                actors = self._infer_actors_from_context(normalized)
+            llm_result.actors = actors or llm_result.actors
+
+        if not llm_result.flow_steps:
+            flow_steps = extract_list_after_labels(user_request, ["Pasos", "Flujo", "Proceso", "Flujo principal"])
+            if not flow_steps:
+                flow_steps = extract_narrative_steps(user_request)
+            if not flow_steps:
+                flow_steps = extract_numbered_steps(user_request)
+            llm_result.flow_steps = flow_steps or llm_result.flow_steps
+
+        if not llm_result.participants and llm_result.diagram_type == DiagramType.SEQUENCE:
+            participants = extract_list_after_labels(user_request, ["Participantes", "Intervinientes"])
+            if not participants:
+                participants = self._infer_default_participants(llm_result.actors or [], normalized)
+            llm_result.participants = participants or llm_result.participants
+
+        if not llm_result.sequence_steps and llm_result.diagram_type == DiagramType.SEQUENCE:
+            sequence_steps = extract_list_after_labels(user_request, ["Interacciones", "Mensajes"])
+            if not sequence_steps:
+                sequence_steps = extract_numbered_steps(user_request)
+            llm_result.sequence_steps = sequence_steps or llm_result.sequence_steps
+
+        if not llm_result.c4_systems:
+            c4_systems = extract_list_after_labels(user_request, ["Sistemas C4", "Sistemas"])
+            if not c4_systems:
+                c4_systems = self._infer_c4_systems_from_context(normalized)
+            llm_result.c4_systems = c4_systems or llm_result.c4_systems
+
+        if not llm_result.c4_containers and llm_result.diagram_type == DiagramType.C4_CONTAINER:
+            c4_containers = extract_list_after_labels(user_request, ["Contenedores", "Containers"])
+            llm_result.c4_containers = c4_containers or llm_result.c4_containers
+
+        if llm_result.standard is None:
+            llm_result.standard = self._infer_standard(normalized, llm_result.diagram_type)
+
+        if llm_result.diagram_format is None:
+            llm_result.diagram_format = self._infer_format(normalized, llm_result.diagram_type)
+
+        llm_result.raw_request = user_request
+        return llm_result
 
     def _heuristic_analysis(self, user_request: str) -> AnalystResult:
         normalized = normalize_text(user_request)
@@ -188,7 +264,7 @@ class AnalystAgent:
             stack=stack,
         )
         result.missing_info = self._detect_missing_info(result)
-        result.clarifying_questions = self._build_clarifying_questions(result.missing_info)
+        result.clarifying_questions = self._build_clarifying_questions(result.missing_info, result.raw_request)
         result.ready_for_architect = not result.missing_info
         return result
 
@@ -273,6 +349,20 @@ class AnalystAgent:
         if AnalystAgent._contains_any(normalized_text, ["almacen", "warehouse"]):
             actors.append("Almacen")
 
+        if AnalystAgent._contains_any(normalized_text, ["billetera digital", "wallet", "e-wallet", "monedero"]):
+            if "Usuario" not in actors:
+                actors.append("Usuario")
+            if AnalystAgent._contains_any(normalized_text, ["banco externo", "banco", "entidad bancaria", "api de banco"]):
+                actors.append("Banco Externo")
+            if AnalystAgent._contains_any(normalized_text, ["servicio de autenticacion", "auth", "servicio auth"]):
+                actors.append("Servicio Autenticacion")
+            if AnalystAgent._contains_any(normalized_text, ["servicio de recarga", "recarga", "cargar saldo"]):
+                actors.append("Servicio Recarga")
+            if AnalystAgent._contains_any(normalized_text, ["servicio de transferencia", "transferencia p2p", "transferir"]):
+                actors.append("Servicio Transferencia")
+            if AnalystAgent._contains_any(normalized_text, ["servicio de notificacion", "notificacion", "notificar"]):
+                actors.append("Servicio Notificacion")
+
         if not actors and AnalystAgent._contains_any(normalized_text, ["e-commerce", "ecommerce", "checkout"]):
             actors = ["Usuario", "Pasarela de Pagos"]
 
@@ -317,6 +407,26 @@ class AnalystAgent:
         if AnalystAgent._contains_any(normalized_text, ["falta de stock", "stock insuficiente"]):
             steps.append("Manejar falta de stock")
 
+        if AnalystAgent._contains_any(normalized_text, ["billetera digital", "wallet", "recarga", "transferencia"]):
+            if AnalystAgent._contains_any(normalized_text, ["recarga", "cargar saldo", "recargar"]):
+                steps.append("Iniciar recarga de saldo")
+            if AnalystAgent._contains_any(normalized_text, ["banco externo", "api de banco", "servicio del banco"]):
+                steps.append("Consumir API del banco externo")
+            if AnalystAgent._contains_any(normalized_text, ["token caducado", "token expirado", "sesion expirada"]):
+                steps.append("Validar token de autenticacion")
+            if AnalystAgent._contains_any(normalized_text, ["concurrencia", "bloqueo", "transaccion"]):
+                steps.append("Manejar concurrencia en base de datos")
+            if AnalystAgent._contains_any(normalized_text, ["transferencia", "transferir", "p2p"]):
+                steps.append("Iniciar transferencia P2P")
+            if AnalystAgent._contains_any(normalized_text, ["telefono", "numero de telefono", "celular"]):
+                steps.append("Buscar usuario receptor por telefono")
+            if AnalystAgent._contains_any(normalized_text, ["fondos insuficientes", "saldo insuficiente", "saldo insuficiente"]):
+                steps.append("Validar saldo disponible")
+            if AnalystAgent._contains_any(normalized_text, ["caida del servicio", "servicio caido", "error externo"]):
+                steps.append("Manejar error del banco externo")
+            if AnalystAgent._contains_any(normalized_text, ["confirmar", "notificar", "confirmacion"]):
+                steps.append("Confirmar operacion al usuario")
+
         if len(steps) < 2 and "pedido" in normalized_text:
             steps.extend(["Crear pedido", "Procesar pago", "Confirmar pedido"])
 
@@ -342,6 +452,15 @@ class AnalystAgent:
             use_cases.append("Gestionar tarjeta sin fondos")
         if "falta de stock" in normalized_text or "stock insuficiente" in normalized_text:
             use_cases.append("Gestionar falta de stock")
+
+        if AnalystAgent._contains_any(normalized_text, ["billetera digital", "wallet", "recarga", "transferencia"]):
+            use_cases.append("Recargar saldo desde banco externo")
+            use_cases.append("Transferir saldo a otro usuario")
+            use_cases.append("Validar autenticacion y token")
+            use_cases.append("Buscar usuario por telefono")
+            use_cases.append("Validar saldo disponible")
+            use_cases.append("Manejar errores de banco externo")
+            use_cases.append("Confirmar operacion")
 
         return AnalystAgent._dedupe(use_cases)
 
@@ -563,6 +682,10 @@ class AnalystAgent:
 
     @staticmethod
     def _infer_standard(normalized_text: str, diagram_type: DiagramType | None) -> DiagramStandard | None:
+        if diagram_type == DiagramType.DOC_PACKAGE:
+            if AnalystAgent._contains_any(normalized_text, ["microservicios", "microservices", "arquitectura", "contenedores", "docker", "kubernetes", "billetera digital", "wallet"]):
+                return DiagramStandard.C4
+
         if "bpmn" in normalized_text:
             return DiagramStandard.BPMN
         if "estandar: c4" in normalized_text or "c4" in normalized_text:
@@ -599,15 +722,22 @@ class AnalystAgent:
         return DiagramFormat.MERMAID
 
     def _try_llm_completion(self, user_request: str) -> AnalystResult | None:
-        system_prompt = _PROMPT_PATH.read_text(encoding="utf-8") if _PROMPT_PATH.exists() else ""
-        user_prompt = (
-            "Extrae el contexto del siguiente pedido y devuelve JSON puro con esta forma: "
-            "{summary, standard, diagram_type, diagram_format, actors, use_cases, classes, flow_steps, "
-            "participants, sequence_steps, entities, relationships, c4_people, c4_systems, c4_containers, "
-            "c4_relations, stack}. No agregues texto fuera del JSON.\n\n"
-            f"Pedido:\n{user_request}"
-        )
-        llm_raw = self._llm_client.complete(system_prompt, user_prompt, temperature=0.0).strip()
+        system_prompt = _LLM_SYSTEM_PROMPT
+        if _PROMPT_PATH.exists():
+            extra = _PROMPT_PATH.read_text(encoding="utf-8").strip()
+            if extra:
+                system_prompt = f"{system_prompt}\n\n{extra}"
+
+        user_prompt = f"""Analiza esta solicitud y extrae el contexto para generar diagramas:
+
+{user_request}
+
+Responde solo con JSON."""
+        try:
+            llm_raw = self._llm_client.complete(system_prompt, user_prompt, temperature=0.0).strip()
+        except Exception:
+            return None
+        
         if not llm_raw:
             return None
 
@@ -779,10 +909,28 @@ class AnalystAgent:
         return missing
 
     @staticmethod
-    def _build_clarifying_questions(missing_info: list[str]) -> list[str]:
+    def _build_clarifying_questions(missing_info: list[str], raw_request: str = "") -> list[str]:
+        normalized = normalize_text(raw_request) if raw_request else ""
+        
+        def already_answered(field: str) -> bool:
+            if not normalized:
+                return False
+            patterns = {
+                "actors": ["actores:", "actor:", "usuarios:", "participantes:"],
+                "use_cases": ["casos de uso:", "funciones:", "acciones:"],
+                "flow_steps": ["pasos:", "flujo:", "proceso:"],
+                "participants": ["participantes:", "intervinientes:", "lifelines:"],
+                "entities": ["entidades", "tablas", "entity"],
+                "c4_people": ["personas c4", "usuarios c4"],
+                "c4_systems": ["sistemas c4", "sistema objetivo"],
+                "c4_containers": ["contenedores", "containers"],
+                "stack": ["stack", "tecnologias", "frameworks"],
+            }
+            return any(p in normalized for p in patterns.get(field, []))
+
         question_map = {
             "diagram_type": "Que salida necesitas: diagrama unico (casos de uso, clases, flujo, secuencia, ER, C4) o paquete de documentacion?",
-            "actors": "Quienes son los actores principales que interactuan con el sistema?",
+            "actors": " quienes son los actores principales que interactuan con el sistema?",
             "use_cases": "Que acciones o casos de uso quieres modelar?",
             "classes": "Que clases o entidades principales deben aparecer?",
             "flow_steps": "Cuales son los pasos del proceso en orden?",
@@ -797,7 +945,8 @@ class AnalystAgent:
             "stack": "Que stack tecnologico debo usar para generar scaffolding (por ejemplo FastAPI, React, PostgreSQL)?",
             "standard": "Debo usar UML, BPMN, ER o C4?",
         }
-        return [question_map[key] for key in missing_info if key in question_map]
+        
+        return [question_map[key] for key in missing_info if key in question_map and not already_answered(key)]
 
     @staticmethod
     def _to_list(value: object) -> list[str]:
