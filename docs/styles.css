@@ -13,26 +13,63 @@
 }
 
 .announcement-banner {
-  background: linear-gradient(90deg, #fef3c7, #fde68a);
-  border: 2px solid #f59e0b;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  margin: 0.75rem;
-  font-size: 0.9rem;
-  text-align: center;
-  color: #92400e;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0ea5e9 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin: 0.75rem 0.75rem 0;
+  font-size: 0.95rem;
+  color: white;
+  text-align: left;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
 }
 
-.announcement-banner strong {
-  color: #b45309;
+.announcement-banner .banner-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #fbbf24;
+}
+
+.announcement-banner .banner-text {
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.announcement-banner a {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+.announcement-banner a:hover {
+  color: #7dd3fc;
+}
+
+.announcement-banner .banner-commands {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 
 .announcement-banner code {
-  background: #f59e0b;
-  color: white;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fbbf24;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.announcement-banner .arrow {
+  color: #fbbf24;
+  font-size: 1.2rem;
+}
+
+.announcement-banner .banner-note {
   font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 body {
