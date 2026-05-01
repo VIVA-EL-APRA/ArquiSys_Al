@@ -12,6 +12,29 @@
   box-sizing: border-box;
 }
 
+.announcement-banner {
+  background: linear-gradient(90deg, #fef3c7, #fde68a);
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem;
+  font-size: 0.9rem;
+  text-align: center;
+  color: #92400e;
+}
+
+.announcement-banner strong {
+  color: #b45309;
+}
+
+.announcement-banner code {
+  background: #f59e0b;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
 body {
   margin: 0;
   font-family: "Segoe UI", Arial, sans-serif;
